@@ -24,6 +24,12 @@ const SYSTEM_PROMPT = `أنت "عُمر" - بوت واتساب ذكي ومرح �
 - ماتكذبش على نتائج البحث - إذا ماشفتيش [نتائج البحث:] فالذاكرة، ماتقولش عندك نتائج
 - إذا البحث فشل، قول بوضوح "ما لقيتش والو، جرب تكتب بالإنجليزية"
 
+❓ *الأسئلة المقارنة*:
+إذا سأل المستخدم "أي واحد أحسن؟" أو "اشمن واحد حسن؟" أو "شنو تنصحني؟":
+- شوف في الذاكرة على [نتائج البحث:] الأخيرة
+- إذا لقيت نتائج، عطي نصيحة واضحة بالدارجة وقول للمستخدم يختار بالرقم
+- إذا ما لقيتش نتائج بحث في الذاكرة، قول "ماعنديش نتائج دابا، صيفط اسم تطبيق"
+
 📦 *تثبيت XAPK*:
 1️⃣ نزّل ZArchiver (كتب "zarchiver")
 2️⃣ افتح الملف بـ ZArchiver
@@ -95,8 +101,31 @@ function detectStarConversion(text) {
     return false;
 }
 
+function detectComparisonQuestion(text) {
+    const lowerText = text.toLowerCase().trim();
+    const comparisonPatterns = [
+        /^(اشمن|شمن|اي|أي)\s+(واحد|وحدة)\s+(حسن|احسن|أحسن|زوين|افضل|أفضل)/i,
+        /^(شنو|شنهو|شنهي|واش)\s+(تنصح|تنصحني|الافضل|الأفضل|الاحسن|الأحسن)/i,
+        /^(which|what)\s+(is\s+)?(better|best)/i,
+        /^(الفرق|difference|compare)\s+(بين|between)/i,
+        /^(اختار|choose|select)\s+(لي|ليا|for me)/i
+    ];
+
+    for (const pattern of comparisonPatterns) {
+        if (pattern.test(lowerText)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function detectAppRequest(text) {
     const lowerText = text.toLowerCase().trim();
+
+    // التحقق من الأسئلة المقارنة - لا نعتبرها طلب بحث
+    if (detectComparisonQuestion(text)) {
+        return null;
+    }
 
     // التحقق من طلب تحويل *6 إلى *3 (تطبيقات الانترنت المجاني)
     if (detectStarConversion(text)) {
