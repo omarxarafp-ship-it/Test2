@@ -560,43 +560,16 @@ export function recordSearchFailure(userId, searchQuery) {
 
 // تنسيق نتائج البحث باستخدام Gemini
 export async function formatResultsWithGemini(userId, searchQuery, results) {
-    const resultsText = results.map((app, idx) => 
-        `${idx + 1}. ${app.title} (${app.appId})`
-    ).join('\n');
+    // تنسيق مباشر بدون استخدام Gemini لضمان النتيجة الصحيحة
+    let formattedText = `هادو هوما نتائج البحث ديال *${searchQuery}*:\n\n`;
     
-    const formatPrompt = `أنت عُمر، بوت واتساب مغربي مرح. 
-المستخدم بحث عن "${searchQuery}" وهادي النتائج:
-
-${resultsText}
-
-صيغ هاد النتائج بأسلوبك المرح بالدارجة المغربية.
-- استعمل إيموجي الأرقام (1️⃣، 2️⃣، إلخ)
-- كن مرح وودود
-- قول للمستخدم يختار رقم
-- ماتزيدش معلومات إضافية على أسماء التطبيقات
-- رد بالنص فقط بلا JSON`;
-
-    try {
-        if (genAI) {
-            const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-            const result = await model.generateContent(formatPrompt);
-            const formattedText = result.response.text();
-            console.log('✅ Gemini صيغ النتائج');
-            return formattedText;
-        } else {
-            const result = await geminiScraper.ask(formatPrompt, null);
-            console.log('✅ Scraper صيغ النتائج');
-            return result.text;
-        }
-    } catch (error) {
-        console.error('❌ فشل تنسيق النتائج بـ Gemini:', error.message);
-        const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
-        let fallbackText = `هاهي نتائج البحث على *${searchQuery}*:\n\n`;
-        results.forEach((app, idx) => {
-            fallbackText += `${numberEmojis[idx] || (idx + 1)} ${app.title}\n`;
-        });
-        fallbackText += `\nشنو بغيتي ننزّل ليك؟ كتب الرقم 😊`;
-        return fallbackText;
-    }
+    results.forEach((app, idx) => {
+        formattedText += `${idx + 1}. ${app.title}\n`;
+    });
+    
+    formattedText += `\n*شنو بغيتي ننزّل ليك؟* كتب غير *الرقم* ديال التطبيق اللي بغيتي.`;
+    
+    console.log('✅ تم تنسيق النتائج');
+    return formattedText;
 }
 
