@@ -343,31 +343,57 @@ async def get_info(package_name: str):
     }
 
 def search_apkpure(query: str, limit: int = 10) -> List[Dict[str, Any]]:
-    """Search APKPure using cloudscraper to bypass Cloudflare"""
+    """Search APKPure with improved headers and retry logic"""
     try:
-        scraper = cloudscraper.create_scraper(
-            browser={
-                'browser': 'chrome',
-                'platform': 'windows',
-                'mobile': False
-            }
-        )
-        
+        import time
         search_url = f"https://apkpure.com/search?q={quote(query)}"
         print(f"[Search] Searching APKPure: {query}", file=sys.stderr)
         
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-        }
+        headers_list = [
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0',
+        ]
         
-        response = scraper.get(search_url, timeout=20, headers=headers)
+        for attempt, user_agent in enumerate(headers_list):
+            try:
+                headers = {
+                    'User-Agent': user_agent,
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.5',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'DNT': '1',
+                    'Connection': 'keep-alive',
+                    'Upgrade-Insecure-Requests': '1',
+                    'Referer': 'https://apkpure.com/',
+                }
+                
+                if attempt > 0:
+                    time.sleep(2 * attempt)
+                    
+                scraper = cloudscraper.create_scraper()
+                response = scraper.get(search_url, timeout=25, headers=headers)
+                
+                if response.status_code == 200:
+                    print(f"[Search] Success with user-agent #{attempt + 1}", file=sys.stderr)
+                    break
+                elif response.status_code == 403:
+                    print(f"[Search] Got 403 with attempt {attempt + 1}, trying next...", file=sys.stderr)
+                    continue
+                else:
+                    print(f"[Search] APKPure returned {response.status_code} on attempt {attempt + 1}", file=sys.stderr)
+                    continue
+                    
+            except Exception as e:
+                print(f"[Search] Attempt {attempt + 1} failed: {str(e)}", file=sys.stderr)
+                if attempt < len(headers_list) - 1:
+                    continue
+                else:
+                    raise
         
         if response.status_code != 200:
-            print(f"[Search] APKPure returned {response.status_code}", file=sys.stderr)
+            print(f"[Search] All attempts failed, last status: {response.status_code}", file=sys.stderr)
             return []
         
         soup = BeautifulSoup(response.text, 'html.parser')

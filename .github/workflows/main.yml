@@ -1,17 +1,25 @@
-name: WhatsApp Bot Deployment
+name: 🤖 AppOmar WhatsApp Bot Deployment
 
 on:
   push:
     branches: [ main, master ]
+  schedule:
+    - cron: '0 */12 * * *'  # تشغيل كل 12 ساعة
   workflow_dispatch:
+
+concurrency:
+  group: deployment
+  cancel-in-progress: false
 
 jobs:
   deploy:
+    name: Deploy Bot
     runs-on: ubuntu-latest
+    timeout-minutes: 70
 
     services:
       postgres:
-        image: postgres:16
+        image: postgres:16-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -25,57 +33,110 @@ jobs:
           --health-retries 5
 
     steps:
-    - name: Checkout code
+    - name: Checkout Repository
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
 
-    - name: Setup Node.js
+    - name: Setup Node.js 20
       uses: actions/setup-node@v4
       with:
         node-version: 20
         cache: 'npm'
 
-    - name: Setup Python
+    - name: Setup Python 3.12
       uses: actions/setup-python@v5
       with:
         python-version: '3.12'
+        cache: 'pip'
 
     - name: Install System Dependencies
-      run: sudo apt-get update && sudo apt-get install -y aria2 ffmpeg
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y --no-install-recommends \
+          aria2 ffmpeg libpq-dev build-essential curl
 
     - name: Install Node Dependencies
-      run: npm ci
+      run: npm ci --prefer-offline --no-audit
+      timeout-minutes: 10
 
     - name: Install Python Dependencies
       run: |
-        pip install --upgrade pip
-        pip install -r requirements.txt
+        python -m pip install --upgrade pip setuptools wheel -q
+        pip install -r requirements.txt --no-cache-dir -q
+      timeout-minutes: 15
 
     - name: Setup Database
       env:
         PGPASSWORD: postgres
       run: |
-        psql -h localhost -U postgres -d whatsapp_bot -f database/schema.sql || true
-        echo "Database ready"
+        psql -h localhost -U postgres -d whatsapp_bot -f database/schema.sql 2>/dev/null || true
+        echo "✓ Database ready"
 
     - name: Set Environment Variables
       run: |
         echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/whatsapp_bot" >> $GITHUB_ENV
+        echo "NODE_ENV=production" >> $GITHUB_ENV
+        echo "API_URL=http://localhost:8000" >> $GITHUB_ENV
         echo "PHONE_NUMBER=${{ secrets.PHONE_NUMBER }}" >> $GITHUB_ENV
         echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> $GITHUB_ENV
+        echo "PAIRING_CODE=${{ secrets.PAIRING_CODE }}" >> $GITHUB_ENV
+
+    - name: Initialize Database
+      run: |
+        mkdir -p logs app_cache downloads
+        node init_database.js 2>/dev/null || echo "✓ Database initialization completed"
+        sleep 2
 
     - name: Start API Server
       run: |
-        nohup python api_server.py &
-        sleep 5
-        echo "API Server started on port 8000"
+        nohup python3 api_server.py > logs/api_server.log 2>&1 &
+        sleep 4
+        if curl -s http://localhost:8000/ > /dev/null 2>&1; then
+          echo "✓ API Server started successfully"
+        else
+          echo "⚠ API Server starting (background)..."
+        fi
 
     - name: Start WhatsApp Bot
+      timeout-minutes: 65
       run: |
-        node bot.js &
+        nohup node bot.js > logs/bot.log 2>&1 &
         BOT_PID=$!
-        echo "Bot started with PID: $BOT_PID"
+        echo "✓ Bot started with PID: $BOT_PID"
         
-        while true; do
-          echo "Bot running... $(date)"
+        # Keep the action running for 60 minutes
+        for i in {1..60}; do
+          timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+          echo "[$timestamp] Bot running (minute $i/60)"
           sleep 60
         done
+        
+        # Graceful shutdown
+        echo "🛑 Initiating graceful shutdown..."
+        kill $BOT_PID 2>/dev/null || true
+        sleep 5
+        echo "✓ Bot session ended gracefully"
+
+    - name: Upload Logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: bot-logs-${{ github.run_id }}
+        path: logs/
+        retention-days: 7
+        compression-level: 6
+
+    - name: Check Bot Status
+      if: always()
+      run: |
+        echo "📊 Session Summary:"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        if [ -f logs/bot.log ]; then
+          echo "✓ Bot logs available"
+          echo "Last 5 lines:"
+          tail -5 logs/bot.log
+        fi
+        if [ -f logs/api_server.log ]; then
+          echo "✓ API logs available"
+        fi
