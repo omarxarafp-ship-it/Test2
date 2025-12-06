@@ -269,7 +269,7 @@ function buildApkObbZip(appDetails, apkFile, obbFiles) {
 
         let sanitizedName = appDetails.title
             .replace(/[<>:"/\\|?*]/g, '')
-            .replace(/\s+/g, '_')
+            .trim()
             .substring(0, 50);
 
         if (!sanitizedName || sanitizedName.trim() === '') {
@@ -394,7 +394,7 @@ const lidToPhoneMap = new Map();
 
 const DEVELOPER_PHONES = config.developer.phones;
 const BOT_PROFILE_IMAGE_URL = config.bot.profileImageUrl;
-const INSTAGRAM_URL = `📷 تابعني على انستجرام:\n${config.developer.instagramUrl}`;
+const INSTAGRAM_URL = `تابعني على انستجرام:\n${config.developer.instagramUrl}`;
 const POWERED_BY = config.developer.poweredBy;
 const MAX_FILE_SIZE = config.bot.maxFileSize;
 const ZARCHIVER_PACKAGE = config.bot.zarchiverPackage;
@@ -2281,7 +2281,7 @@ async function handleAppDownload(sock, remoteJid, userId, senderPhone, msg, appI
             if (isXapk) {
                 let sanitizedName = realAppTitle
                     .replace(/[<>:"/\\|?*]/g, '')
-                    .replace(/\s+/g, '_')
+                    .trim()
                     .substring(0, 50);
 
                 if (!sanitizedName || sanitizedName.trim() === '') {

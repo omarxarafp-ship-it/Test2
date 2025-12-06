@@ -12,7 +12,7 @@ const config = {
         phones: ['212718938088', '234905250308102'],
         instagramUrl: 'https://www.instagram.com/omarxarafp',
         poweredBy: '\n\n> © من طرف AppOmar',
-        pluginBranding: `\n\n📷 *تابعني على انستجرام*\n🔗 instagram.com/omarxarafp\n\n> © من طرف AppOmar`
+        pluginBranding: `\n\n*تابعني على انستجرام*\ninstagram.com/omarxarafp\n\n> © من طرف AppOmar`
     },
 
     // إعدادات البوت
