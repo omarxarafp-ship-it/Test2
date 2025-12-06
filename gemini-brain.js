@@ -13,51 +13,40 @@ const scraperSessions = new Map();
 
 const SYSTEM_PROMPT = `أنت "عُمر" - بوت واتساب ذكي ومرح كتهضر بالدارجة المغربية. شخصيتك ودودة ومساعدة.
 
-🧠 *ذاكرتك الخارقة*:
+*ذاكرتك*:
 - كتتذكر كلشي: التطبيقات اللي رسلتها، نتائج البحث، والمحادثة كاملة
-- [تم إرسال تطبيق: X] = رسلت هاد التطبيق للمستخدم *دابا* (استعمل "دابا" أو "توا" ماشي "البارح")
+- [تم إرسال تطبيق: X] = رسلت هاد التطبيق للمستخدم دابا (استعمل "دابا" أو "توا" ماشي "البارح")
 - [تم إرسال XAPK: X] = رسلت XAPK - قدر تعطي تعليمات التثبيت
-- [نتائج البحث: X] = هادي القائمة اللي عرضتها - استعمل الـ appId منها!
+- [نتائج البحث: X] = هادي القائمة اللي عرضتها - استعمل الـ appId منها
 - [فشل البحث: X] = البحث ما لقى والو - قول للمستخدم يكتب بالإنجليزية
 
-⏰ *ملاحظة مهمة عن الوقت*:
+*الوقت*:
 - ماعندكش معلومات دقيقة على الوقت الحقيقي
 - استعمل كلمات عامة: "دابا"، "توا"، "قبيلة"، "من شوية"
 - ماتقولش "البارح"، "اليوم"، "الأسبوع الماضي" إلا إذا كان واضح فالمحادثة
 
-🚫 *ماتخترعش والو*:
+*قواعد مهمة*:
 - ماتكذبش على نتائج البحث - إذا ماشفتيش [نتائج البحث:] فالذاكرة، ماتقولش عندك نتائج
 - إذا البحث فشل، قول بوضوح "ما لقيتش والو، جرب تكتب بالإنجليزية"
+- استعمل إيموجي واحد أو اثنين فقط في كل رد، ماشي كثير
 
-❓ *الأسئلة المقارنة*:
+*الأسئلة المقارنة*:
 إذا سأل المستخدم "أي واحد أحسن؟" أو "اشمن واحد حسن؟" أو "شنو تنصحني؟":
 - شوف في الذاكرة على [نتائج البحث:] الأخيرة
 - إذا لقيت نتائج، عطي نصيحة واضحة بالدارجة وقول للمستخدم يختار بالرقم
 - إذا ما لقيتش نتائج بحث في الذاكرة، قول "ماعنديش نتائج دابا، صيفط اسم تطبيق"
 
-📦 *تثبيت XAPK*:
-1️⃣ نزّل ZArchiver (كتب "zarchiver")
-2️⃣ افتح الملف بـ ZArchiver
-3️⃣ ضغط مطول → "تثبيت"
-
-📚 *الدارجة*:
-الأرقام: لول=1, التاني/جوج=2, التالت=3, الربع=4, الخامس=5
-كلمات: بغيت=أريد, نزّل=حمّل, زوين=ممتاز, واخا=موافق
-
-🔧 *الأوامر (JSON فقط)*:
-1. {"action": "reply", "message": "..."} ← للمحادثة
+*الأوامر - أرجع JSON نظيف فقط بدون كلام زائد*:
+1. {"action": "reply", "message": "نص الرد هنا"} ← للمحادثة العادية
 2. {"action": "search_app", "query": "AppName"} ← للبحث (بالإنجليزية)
 3. {"action": "download_app", "appId": "com.x.y", "appName": "X"} ← للتحميل
-4. {"action": "show_results", "message": "...", "results": [...]} ← لعرض نتائج البحث بأسلوبك
 
-📝 *عرض نتائج البحث*:
-عندما النظام يعطيك نتائج بحث، استعمل "show_results" وصيغها بأسلوبك المرح:
-{"action": "show_results", "message": "هاهي التطبيقات اللي لقيت 🔥\\n\\n1️⃣ AppName1\\n2️⃣ AppName2\\n...\\n\\nأش بغيتي ننزل ليك؟ 😊", "results": [{"title":"...", "appId":"...", "index":1},...]}
-
-⚠️ *مهم جداً*:
+*مهم جداً*:
+- أرجع JSON نظيف فقط، بدون ```json أو أي تنسيق
 - appId = package name الحقيقي (com.company.app) ماشي اسم التطبيق
 - ملي المستخدم يختار رقم، استعمل الـ appId من [نتائج البحث:] فالذاكرة
-- كن مرح وطبيعي فردودك، ماشي رسمي بزاف`;
+- كن مرح وطبيعي فردودك، ماشي رسمي بزاف
+- استعمل إيموجي قليل (1-2 فقط في كل رد)`;
 
 
 function detectSocialMediaUrl(text) {
@@ -429,8 +418,14 @@ export async function processMessage(userId, text, imageData = null) {
         }
 
         try {
+            // تنظيف الرد من markdown وأي تنسيق
+            let cleanedText = responseText
+                .replace(/```json\s*/g, '')
+                .replace(/```\s*/g, '')
+                .trim();
+
             // محاولة استخراج JSON من الرد
-            const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+            const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
                 const parsed = JSON.parse(jsonMatch[0]);
 
@@ -442,12 +437,24 @@ export async function processMessage(userId, text, imageData = null) {
                         if (innerJsonMatch) {
                             const innerParsed = JSON.parse(innerJsonMatch[0]);
                             if (innerParsed.action && innerParsed.message) {
-                                // إذا كان هناك JSON داخلي صحيح، نستخدمه
-                                return innerParsed;
+                                // إذا كان هناك JSON داخلي صحيح، نستخدمه ونحذف JSON من message
+                                return {
+                                    action: innerParsed.action,
+                                    message: innerParsed.message
+                                };
                             }
                         }
+                        // إزالة أي JSON من message
+                        parsed.message = parsed.message
+                            .replace(/```json[\s\S]*?```/g, '')
+                            .replace(/\{[\s\S]*?\}/g, '')
+                            .trim();
                     } catch (e) {
-                        // إذا فشل، نستخدم الـ JSON الخارجي
+                        // إذا فشل، نستخدم الـ JSON الخارجي ونحذف JSON من message
+                        parsed.message = parsed.message
+                            .replace(/```json[\s\S]*?```/g, '')
+                            .replace(/\{[\s\S]*?\}/g, '')
+                            .trim();
                     }
                 }
 
@@ -458,9 +465,15 @@ export async function processMessage(userId, text, imageData = null) {
         } catch (e) {
         }
 
+        // إذا فشل استخراج JSON، نرجع النص كرد عادي بعد تنظيفه
+        const finalMessage = responseText
+            .replace(/```json[\s\S]*?```/g, '')
+            .replace(/\{[\s\S]*?\}/g, '')
+            .trim();
+
         return {
             action: "reply",
-            message: responseText.replace(/```json[\s\S]*```/g, '').replace(/\{[\s\S]*\}/g, '').trim() || responseText
+            message: finalMessage || "مفهمتش. عاود صيفط."
         };
 
     } catch (error) {
@@ -595,13 +608,13 @@ export function recordSearchFailure(userId, searchQuery) {
 // تنسيق نتائج البحث باستخدام Gemini
 export async function formatResultsWithGemini(userId, searchQuery, results) {
     // تنسيق مباشر بدون استخدام Gemini لضمان النتيجة الصحيحة
-    let formattedText = `هادو هوما نتائج البحث ديال *${searchQuery}*:\n\n`;
+    let formattedText = `نتائج البحث ديال *${searchQuery}*:\n\n`;
     
     results.forEach((app, idx) => {
         formattedText += `${idx + 1}. ${app.title}\n`;
     });
     
-    formattedText += `\n*شنو بغيتي ننزّل ليك؟* كتب غير *الرقم* ديال التطبيق اللي بغيتي.`;
+    formattedText += `\nشنو بغيتي ننزّل ليك؟ كتب الرقم.`;
     
     console.log('✅ تم تنسيق النتائج');
     return formattedText;
