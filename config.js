@@ -10,10 +10,9 @@ const config = {
     // معلومات المطور
     developer: {
         phones: ['212718938088', '234905250308102'],
-        instagramUrl: '',
-        channelUrl: 'https://whatsapp.com/channel/0029VbBUsqSEVccOQaMEtm0n',
+        instagramUrl: 'https://www.instagram.com/omarxarafp',
         poweredBy: '\n\n> © من طرف AppOmar',
-        pluginBranding: `\n\n📢 *انضم لقناتنا على واتساب*\n🔗 https://whatsapp.com/channel/0029VbBUsqSEVccOQaMEtm0n\n\n> © من طرف APPOMAR`
+        pluginBranding: `\n\n📷 *تابعني على انستجرام*\n🔗 instagram.com/omarxarafp\n\n> © من طرف AppOmar`
     },
 
     // إعدادات البوت

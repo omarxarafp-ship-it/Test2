@@ -394,7 +394,7 @@ const lidToPhoneMap = new Map();
 
 const DEVELOPER_PHONES = config.developer.phones;
 const BOT_PROFILE_IMAGE_URL = config.bot.profileImageUrl;
-const INSTAGRAM_URL = `رابط القناة انضم لنا:\n${config.developer.channelUrl}`;
+const INSTAGRAM_URL = `📷 تابعني على انستجرام:\n${config.developer.instagramUrl}`;
 const POWERED_BY = config.developer.poweredBy;
 const MAX_FILE_SIZE = config.bot.maxFileSize;
 const ZARCHIVER_PACKAGE = config.bot.zarchiverPackage;
