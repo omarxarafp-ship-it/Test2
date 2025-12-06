@@ -433,9 +433,28 @@ export async function processMessage(userId, text, imageData = null) {
         }
 
         try {
+            // محاولة استخراج JSON من الرد
             const jsonMatch = responseText.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
                 const parsed = JSON.parse(jsonMatch[0]);
+                
+                // إذا كان الرد يحتوي على action وmessage، نتحقق إذا كانت message فيها JSON أيضاً
+                if (parsed.action === "reply" && parsed.message) {
+                    try {
+                        // محاولة استخراج JSON من message
+                        const innerJsonMatch = parsed.message.match(/\{[\s\S]*\}/);
+                        if (innerJsonMatch) {
+                            const innerParsed = JSON.parse(innerJsonMatch[0]);
+                            if (innerParsed.action && innerParsed.message) {
+                                // إذا كان هناك JSON داخلي صحيح، نستخدمه
+                                return innerParsed;
+                            }
+                        }
+                    } catch (e) {
+                        // إذا فشل، نستخدم الـ JSON الخارجي
+                    }
+                }
+                
                 if (parsed.action) {
                     return parsed;
                 }
