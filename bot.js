@@ -13,7 +13,7 @@ import axios from 'axios';
 import sharp from 'sharp';
 import AdmZip from 'adm-zip';
 import config from './config.js';
-import { processMessage, clearHistory, addContext, recordSuccessfulDownload, recordSuccessfulMediaDownload, recordSearchFailure, formatResultsWithGemini } from './gemini-brain.js';
+import { processMessage, clearHistory, addContext, recordSuccessfulDownload, recordSuccessfulMediaDownload, recordSearchFailure, formatResultsWithGemini, correctSpelling } from './gemini-brain.js';
 
 const loadedPlugins = [];
 
@@ -1884,7 +1884,11 @@ AppOmar Bot v3.0
                 session.state = 'waiting_for_search';
                 userSessions.set(userId, session);
                 
-                const searchQuery = geminiResponse.query || text;
+                const rawQuery = geminiResponse.query || text;
+                const searchQuery = correctSpelling(rawQuery);
+                if (searchQuery !== rawQuery.toLowerCase().trim()) {
+                    console.log(`✏️ تصحيح إملائي: "${rawQuery}" → "${searchQuery}"`);
+                }
                 console.log('🔎 كنبحث على:', searchQuery);
                 const isPackageName = /^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/i.test(searchQuery.trim());
                 let results;
@@ -2064,7 +2068,11 @@ AppOmar Bot v3.0
                     session.state = 'waiting_for_search';
                     userSessions.set(userId, session);
                     
-                    const searchQuery = geminiResponse.query || text;
+                    const rawQuery = geminiResponse.query || text;
+                    const searchQuery = correctSpelling(rawQuery);
+                    if (searchQuery !== rawQuery.toLowerCase().trim()) {
+                        console.log(`✏️ تصحيح إملائي: "${rawQuery}" → "${searchQuery}"`);
+                    }
                     console.log('🔎 كنبحث على (selection):', searchQuery);
                     const isPackageName = /^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/i.test(searchQuery.trim());
                     let results;

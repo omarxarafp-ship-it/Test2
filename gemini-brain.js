@@ -82,6 +82,175 @@ function detectSocialMediaUrl(text) {
     return null;
 }
 
+// تصحيح الأخطاء الإملائية الشائعة
+export function correctSpelling(text) {
+    if (!text) return text;
+    
+    let corrected = text.toLowerCase().trim();
+    
+    // قاموس التصحيحات الشائعة
+    const corrections = {
+        // GTA variants
+        'cta': 'gta',
+        'jta': 'gta',
+        'gts': 'gta',
+        'gtaa': 'gta',
+        // San Andreas variants
+        'sandriads': 'san andreas',
+        'sandrias': 'san andreas',
+        'sanandres': 'san andreas',
+        'sanandreas': 'san andreas',
+        'san andres': 'san andreas',
+        'san andrias': 'san andreas',
+        'sandreas': 'san andreas',
+        'sanandris': 'san andreas',
+        // Free Fire variants
+        'frefire': 'free fire',
+        'freefare': 'free fire',
+        'fri fire': 'free fire',
+        'fre fire': 'free fire',
+        'free fir': 'free fire',
+        'freefir': 'free fire',
+        'frifir': 'free fire',
+        'frfir': 'free fire',
+        // PUBG variants
+        'pubji': 'pubg',
+        'pabg': 'pubg',
+        'pbg': 'pubg',
+        'pubge': 'pubg',
+        'pubgm': 'pubg mobile',
+        // Minecraft variants
+        'mincraft': 'minecraft',
+        'maincraft': 'minecraft',
+        'maincraf': 'minecraft',
+        'mincraf': 'minecraft',
+        'minecraf': 'minecraft',
+        // WhatsApp variants
+        'watsap': 'whatsapp',
+        'whatsap': 'whatsapp',
+        'whatssap': 'whatsapp',
+        'watsapp': 'whatsapp',
+        'whatapp': 'whatsapp',
+        'wathsapp': 'whatsapp',
+        // Instagram variants
+        'instgram': 'instagram',
+        'instagrem': 'instagram',
+        'instegram': 'instagram',
+        'instagrm': 'instagram',
+        'insta': 'instagram',
+        // TikTok variants
+        'tiktk': 'tiktok',
+        'tiktak': 'tiktok',
+        'tik tok': 'tiktok',
+        'tictok': 'tiktok',
+        // YouTube variants
+        'yotube': 'youtube',
+        'youtub': 'youtube',
+        'yutube': 'youtube',
+        'yutub': 'youtube',
+        'youtupe': 'youtube',
+        // Facebook variants
+        'facebok': 'facebook',
+        'facbook': 'facebook',
+        'fecebook': 'facebook',
+        'fbook': 'facebook',
+        // Telegram variants
+        'telegran': 'telegram',
+        'telgram': 'telegram',
+        'telegarm': 'telegram',
+        // Clash of Clans
+        'clash of clanes': 'clash of clans',
+        'clash of calns': 'clash of clans',
+        'clach of clans': 'clash of clans',
+        // Call of Duty
+        'call of duti': 'call of duty',
+        'call of dudy': 'call of duty',
+        'callofdutymobile': 'call of duty mobile',
+        // Subway Surfers
+        'subwey': 'subway surfers',
+        'subwaysurfer': 'subway surfers',
+        'sabway': 'subway surfers',
+        // Temple Run
+        'tempel run': 'temple run',
+        'templerun': 'temple run',
+        // Roblox
+        'roblex': 'roblox',
+        'roblx': 'roblox',
+        'roblocs': 'roblox',
+        // VPN apps
+        'http custome': 'http custom',
+        'httpcustom': 'http custom',
+        'md tunel': 'md tunnel',
+        'mdtunnel': 'md tunnel',
+        'ha tunel': 'ha tunnel',
+        'hatunnel': 'ha tunnel',
+        // ZArchiver
+        'zarchivr': 'zarchiver',
+        'z archiver': 'zarchiver',
+        'zarchivar': 'zarchiver',
+        // Capcut
+        'cap cut': 'capcut',
+        'capkat': 'capcut',
+        // PicsArt
+        'picsarte': 'picsart',
+        'pics art': 'picsart',
+        // Candy Crush
+        'candycursh': 'candy crush',
+        'candy cruch': 'candy crush',
+        'candycrush': 'candy crush',
+        // Among Us
+        'amongus': 'among us',
+        'amung us': 'among us',
+        'amoung us': 'among us',
+        // Asphalt
+        'asphelt': 'asphalt',
+        'asfalt': 'asphalt',
+        // Mobile Legends
+        'mobilelegends': 'mobile legends',
+        'mobil legends': 'mobile legends',
+        'mobilelejends': 'mobile legends',
+        // Granny
+        'grani': 'granny',
+        'grany': 'granny',
+        // FIFA
+        'fefa': 'fifa mobile',
+        'fiffa': 'fifa mobile',
+        // eFootball/PES
+        'efotball': 'efootball',
+        'efoootball': 'efootball',
+        // Dream League Soccer
+        'dram league': 'dream league soccer',
+        'dreamleague': 'dream league soccer',
+        // Brawl Stars  
+        'brawlstars': 'brawl stars',
+        'brawl star': 'brawl stars',
+        'browl stars': 'brawl stars',
+    };
+    
+    // تطبيق التصحيحات على كل كلمة
+    let words = corrected.split(/\s+/);
+    for (let i = 0; i < words.length; i++) {
+        if (corrections[words[i]]) {
+            words[i] = corrections[words[i]];
+        }
+    }
+    corrected = words.join(' ');
+    
+    // تصحيح العبارات الكاملة
+    for (const [wrong, right] of Object.entries(corrections)) {
+        if (corrected.includes(wrong)) {
+            corrected = corrected.replace(wrong, right);
+        }
+    }
+    
+    // تصحيحات خاصة للجمل
+    if (/c?[gj]ta.*s[ao]n/i.test(corrected) || /s[ao]n.*andre/i.test(corrected)) {
+        corrected = 'gta san andreas';
+    }
+    
+    return corrected;
+}
+
 function detectStarConversion(text) {
     const lowerText = text.toLowerCase().trim();
     const patterns = [
