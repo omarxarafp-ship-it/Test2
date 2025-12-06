@@ -13,7 +13,7 @@ import axios from 'axios';
 import sharp from 'sharp';
 import AdmZip from 'adm-zip';
 import config from './config.js';
-import { processMessage, clearHistory, addContext, recordSuccessfulDownload, recordSuccessfulMediaDownload } from './gemini-brain.js';
+import { processMessage, clearHistory, addContext, recordSuccessfulDownload, recordSuccessfulMediaDownload, recordSearchFailure, formatResultsWithGemini } from './gemini-brain.js';
 
 const loadedPlugins = [];
 
@@ -1911,6 +1911,7 @@ AppOmar Bot v3.0
                 }
 
                 if (!results || results.length === 0) {
+                    recordSearchFailure(userId, searchQuery);
                     await sendBotMessage(sock, remoteJid, { 
                         text: `ماعنديش نتائج على "${searchQuery}". جرب تكتب بالانجليزية${POWERED_BY}`
                     }, msg);
@@ -1931,15 +1932,15 @@ AppOmar Bot v3.0
                 session.searchResults = [...cleanResults];
                 session.state = 'waiting_for_selection';
 
-                const resultText = formatSearchResults(cleanResults) + POWERED_BY;
+                const resultText = await formatResultsWithGemini(userId, searchQuery, cleanResults) + POWERED_BY;
                 const sentMsg = await sendBotMessage(sock, remoteJid, { text: resultText }, msg, { skipDelay: true });
                 session.lastListMessageKey = sentMsg?.key;
                 userSessions.set(userId, session);
                 console.log('✅ تصيفطت نتائج البحث');
                 
                 // حفظ نتائج البحث في ذاكرة المحادثة
-                const appNames = cleanResults.map(app => `${app.index}. ${app.title}`).join('\n');
-                addContext(userId, `عرضت للمستخدم نتائج البحث عن "${searchQuery}":\n${appNames}\nالمستخدم يمكنه اختيار رقم أو طلب شيء آخر.`);
+                const appNames = cleanResults.map(app => `${app.index}. ${app.title} (${app.appId})`).join('\n');
+                addContext(userId, `[نتائج البحث: ${searchQuery}]\n${appNames}`, 'search');
 
             } else if (geminiResponse.action === 'download_app') {
                 await sock.sendMessage(remoteJid, { react: { text: '📥', key: msg.key } });
@@ -2066,6 +2067,7 @@ AppOmar Bot v3.0
                     }
 
                     if (!results || results.length === 0) {
+                        recordSearchFailure(userId, searchQuery);
                         await sendBotMessage(sock, remoteJid, { 
                             text: `ماعنديش نتائج على "${searchQuery}". جرب تكتب بالانجليزية${POWERED_BY}`
                         }, msg);
@@ -2086,15 +2088,15 @@ AppOmar Bot v3.0
                     session.searchResults = [...cleanResults];
                     session.state = 'waiting_for_selection';
 
-                    const resultText = formatSearchResults(cleanResults) + POWERED_BY;
+                    const resultText = await formatResultsWithGemini(userId, searchQuery, cleanResults) + POWERED_BY;
                     const sentMsg = await sendBotMessage(sock, remoteJid, { text: resultText }, msg, { skipDelay: true });
                     session.lastListMessageKey = sentMsg?.key;
                     userSessions.set(userId, session);
                     console.log('✅ تصيفطت نتائج البحث (selection)');
                     
                     // حفظ نتائج البحث في ذاكرة المحادثة
-                    const appNames = cleanResults.map(app => `${app.index}. ${app.title}`).join('\n');
-                    addContext(userId, `عرضت للمستخدم نتائج البحث عن "${searchQuery}":\n${appNames}\nالمستخدم يمكنه اختيار رقم أو طلب شيء آخر.`);
+                    const appNames = cleanResults.map(app => `${app.index}. ${app.title} (${app.appId})`).join('\n');
+                    addContext(userId, `[نتائج البحث: ${searchQuery}]\n${appNames}`, 'search');
                     
                 } else if (geminiResponse.action === 'download_app') {
                     await sock.sendMessage(remoteJid, { react: { text: '📥', key: msg.key } });

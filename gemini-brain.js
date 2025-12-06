@@ -11,86 +11,43 @@ if (API_KEY) {
 const conversationHistory = new Map();
 const scraperSessions = new Map();
 
-const SYSTEM_PROMPT = `أنت مساعد ذكي للبوت ديال واتساب. اسمك "عُمر" وكتهضر بالدارجة المغربية.
+const SYSTEM_PROMPT = `أنت "عُمر" - بوت واتساب ذكي ومرح كتهضر بالدارجة المغربية. شخصيتك ودودة ومساعدة.
 
-🧠 ملاحظة مهمة جداً - أنت تتذكر كل شيء:
-- أنت تتذكر المحادثة والتطبيقات اللي رسلتها والروابط والطلبات
-- إذا شفت [تم إرسال تطبيق: ...] فالتاريخ، هذا يعني رسلت هاد التطبيق للمستخدم بنجاح
-- إذا شفت [تم إرسال XAPK: ...] تقدر تعطيه تعليمات التثبيت
-- إذا شفت [بحث: ...] فالتاريخ، هادي هي نتائج البحث اللي عرضتها
-- إذا عرضت قائمة تطبيقات وقال رقم أو كلمة ترتيب، نزّل مباشرة بدون سؤال!
-- إذا سألك "كيفاش نثبت" أو "كيفاش نديرو" راجع التاريخ وأعطيه التعليمات
+🧠 *ذاكرتك الخارقة*:
+- كتتذكر كلشي: التطبيقات اللي رسلتها، نتائج البحث، والمحادثة كاملة
+- [تم إرسال تطبيق: X] = رسلت هاد التطبيق للمستخدم
+- [تم إرسال XAPK: X] = رسلت XAPK - قدر تعطي تعليمات التثبيت
+- [نتائج البحث: X] = هادي القائمة اللي عرضتها - استعمل الـ appId منها!
+- [فشل البحث: X] = البحث ما لقى والو - قول للمستخدم يكتب بالإنجليزية
 
-📦 تعليمات تثبيت ملفات XAPK (مهم جداً):
-إذا أرسلت ملف XAPK، أخبر المستخدم:
-1️⃣ افتح الملف ب ZArchiver
-2️⃣ رجع للخلف اتلقى الملف لي نزلتي، ضغط عليه مطول
-3️⃣ اختار "Install" أو "تثبيت"
-4️⃣ تسنى شوية... ومبروووك! 🎉
-💡 ماعندكش ZArchiver؟ كتب "zarchiver" وغادي نرسلو ليك
+🚫 *ماتخترعش والو*:
+- ماتكذبش على نتائج البحث - إذا ماشفتيش [نتائج البحث:] فالذاكرة، ماتقولش عندك نتائج
+- إذا البحث فشل، قول بوضوح "ما لقيتش والو، جرب تكتب بالإنجليزية"
 
-📚 قاموس الدارجة المغربية:
-【الأرقام بالدارجة】
-- "لول/الأول/واحد" = 1
-- "التاني/جوج" = 2  
-- "التالت/تلاتة" = 3
-- "الربع/ربعة" = 4
-- "الخامس/خمسة" = 5
-- "السادس/ستة" = 6
-- "السابع/سبعة" = 7
-- "التامن/تمنية" = 8
-- "التاسع/تسعود" = 9
-- "العاشر/عشرة" = 10
+📦 *تثبيت XAPK*:
+1️⃣ نزّل ZArchiver (كتب "zarchiver")
+2️⃣ افتح الملف بـ ZArchiver
+3️⃣ ضغط مطول → "تثبيت"
 
-【كلمات شائعة】
-- "بغيت/عطيني/جيبلي" = أريد
-- "نزّل/حمّل/صيفط" = حمّل لي
-- "زوين/مزيان" = ممتاز
-- "خايب/ماشي مزيان" = سيء
-- "واخا/صافي" = موافق
-- "بحالو/كيفو" = مثله (مشابه)
-- "شحال" = كم (السعر/الحجم)
-- "فين" = أين
-- "كيفاش" = كيف
-- "علاش" = لماذا
-- "شكون" = من
-- "آش/شنو" = ماذا
+📚 *الدارجة*:
+الأرقام: لول=1, التاني/جوج=2, التالت=3, الربع=4, الخامس=5
+كلمات: بغيت=أريد, نزّل=حمّل, زوين=ممتاز, واخا=موافق
 
-🎯 وظائفك الأساسية:
-1. البحث عن التطبيقات والألعاب وتنزيلها
-2. تحميل الفيديوهات من السوشيال ميديا
-3. الإجابة على الأسئلة وحل المسائل
-4. تحليل الصور وقراءتها
-5. المحادثة والمساعدة العامة
+🔧 *الأوامر (JSON فقط)*:
+1. {"action": "reply", "message": "..."} ← للمحادثة
+2. {"action": "search_app", "query": "AppName"} ← للبحث (بالإنجليزية)
+3. {"action": "download_app", "appId": "com.x.y", "appName": "X"} ← للتحميل
+4. {"action": "show_results", "message": "...", "results": [...]} ← لعرض نتائج البحث بأسلوبك
 
-🔧 الأوامر (JSON فقط):
-1. {"action": "reply", "message": "الرد"} ← للمحادثة العادية
-2. {"action": "search_app", "query": "اسم التطبيق بالإنجليزية"} ← للبحث عن تطبيق
-3. {"action": "download_app", "appId": "com.example.app"} ← لتحميل تطبيق معين من القائمة
+📝 *عرض نتائج البحث*:
+عندما النظام يعطيك نتائج بحث، استعمل "show_results" وصيغها بأسلوبك المرح:
+{"action": "show_results", "message": "هاهي التطبيقات اللي لقيت 🔥\\n\\n1️⃣ AppName1\\n2️⃣ AppName2\\n...\\n\\nأش بغيتي ننزل ليك؟ 😊", "results": [{"title":"...", "appId":"...", "index":1},...]}
 
-📋 قواعد مهمة:
-- دائماً رجّع JSON صحيح بدون نص إضافي
-- استخدم "reply" للتحيات والأسئلة العامة
-- استخدم "search_app" فقط عند طلب تطبيق واضح
-- عند اختيار رقم من القائمة، استخدم "download_app" مباشرة
-- اكتب اسم التطبيق بالإنجليزية في search_app (مثل: WhatsApp وليس واتساب)
+⚠️ *مهم جداً*:
+- appId = package name الحقيقي (com.company.app) ماشي اسم التطبيق
+- ملي المستخدم يختار رقم، استعمل الـ appId من [نتائج البحث:] فالذاكرة
+- كن مرح وطبيعي فردودك، ماشي رسمي بزاف`;
 
-⚠️ تطبيقات مدفوعة:
-- بعض التطبيقات قد تكون مدفوعة، حاول تنزيلها عادياً
-- إذا لم تكن متوفرة، اقترح البديل المجاني
-
-📝 أمثلة:
-- "السلام" → {"action": "reply", "message": "وعليكم السلام! كيفاش نقدر نعاونك؟"}
-- "قلب على WhatsApp" → {"action": "search_app", "query": "WhatsApp"}
-- "نزل رقم 1" → {"action": "download_app", "appId": "com.whatsapp", "appName": "WhatsApp"}
-  ⚠️ *appId يجب أن يكون package name الحقيقي* (com.company.app) وليس اسم التطبيق
-- "شكراً" → {"action": "reply", "message": "العفو! ماشي مشكل 😊"}
-
-🔴 *مهم جداً:* عندما المستخدم يختار رقم من القائمة:
-- استخدم الـ appId الحقيقي من نتائج البحث في الذاكرة
-- مثال: إذا القائمة فيها "ChatGPT" بـ appId "com.openai.chatgpt"
-  والمستخدم قال "نزل رقم 1" أو "ChatGPT"
-  → استخدم appId: "com.openai.chatgpt" وليس "ChatGPT"`;
 
 function detectSocialMediaUrl(text) {
     const patterns = {
@@ -501,7 +458,7 @@ export function addContext(userId, context, contextType = 'general') {
     let formattedContext;
     switch (contextType) {
         case 'search':
-            formattedContext = `[بحث: ${context}]`;
+            formattedContext = `[نتائج البحث: ${context}]`;
             break;
         case 'link':
             formattedContext = `[رابط مرسل: ${context}]`;
@@ -578,7 +535,7 @@ export function recordUserRequest(userId, request) {
 export function getMemorySummary(userId) {
     const history = conversationHistory.get(userId) || [];
     const downloads = history.filter(h => h.text.includes('[تم إرسال'));
-    const searches = history.filter(h => h.text.includes('[بحث:'));
+    const searches = history.filter(h => h.text.includes('[نتائج البحث:'));
     return {
         totalMessages: history.length,
         downloads: downloads.length,
@@ -586,3 +543,60 @@ export function getMemorySummary(userId) {
         lastActivity: history.length > 0 ? history[history.length - 1] : null
     };
 }
+
+// تسجيل فشل البحث في الذاكرة (مهم لمنع الهلوسة)
+export function recordSearchFailure(userId, searchQuery) {
+    if (!conversationHistory.has(userId)) {
+        conversationHistory.set(userId, []);
+    }
+    const history = conversationHistory.get(userId);
+    const failureRecord = `[فشل البحث: "${searchQuery}" - لم يتم العثور على نتائج. يجب أن يكتب المستخدم اسم التطبيق بالإنجليزية بشكل صحيح]`;
+    history.push({ role: "model", text: failureRecord });
+    if (history.length > 100) {
+        conversationHistory.set(userId, history.slice(-100));
+    }
+    console.log(`📝 تم تسجيل فشل البحث: ${searchQuery}`);
+}
+
+// تنسيق نتائج البحث باستخدام Gemini
+export async function formatResultsWithGemini(userId, searchQuery, results) {
+    const resultsText = results.map((app, idx) => 
+        `${idx + 1}. ${app.title} (${app.appId})`
+    ).join('\n');
+    
+    const formatPrompt = `أنت عُمر، بوت واتساب مغربي مرح. 
+المستخدم بحث عن "${searchQuery}" وهادي النتائج:
+
+${resultsText}
+
+صيغ هاد النتائج بأسلوبك المرح بالدارجة المغربية.
+- استعمل إيموجي الأرقام (1️⃣، 2️⃣، إلخ)
+- كن مرح وودود
+- قول للمستخدم يختار رقم
+- ماتزيدش معلومات إضافية على أسماء التطبيقات
+- رد بالنص فقط بلا JSON`;
+
+    try {
+        if (genAI) {
+            const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+            const result = await model.generateContent(formatPrompt);
+            const formattedText = result.response.text();
+            console.log('✅ Gemini صيغ النتائج');
+            return formattedText;
+        } else {
+            const result = await geminiScraper.ask(formatPrompt, null);
+            console.log('✅ Scraper صيغ النتائج');
+            return result.text;
+        }
+    } catch (error) {
+        console.error('❌ فشل تنسيق النتائج بـ Gemini:', error.message);
+        const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+        let fallbackText = `هاهي نتائج البحث على *${searchQuery}*:\n\n`;
+        results.forEach((app, idx) => {
+            fallbackText += `${numberEmojis[idx] || (idx + 1)} ${app.title}\n`;
+        });
+        fallbackText += `\nشنو بغيتي ننزّل ليك؟ كتب الرقم 😊`;
+        return fallbackText;
+    }
+}
+
