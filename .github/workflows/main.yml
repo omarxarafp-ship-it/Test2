@@ -1,0 +1,81 @@
+name: WhatsApp Bot Deployment
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: whatsapp_bot
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: 'npm'
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install System Dependencies
+      run: sudo apt-get update && sudo apt-get install -y aria2 ffmpeg
+
+    - name: Install Node Dependencies
+      run: npm ci
+
+    - name: Install Python Dependencies
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Setup Database
+      env:
+        PGPASSWORD: postgres
+      run: |
+        psql -h localhost -U postgres -d whatsapp_bot -f database/schema.sql || true
+        echo "Database ready"
+
+    - name: Set Environment Variables
+      run: |
+        echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/whatsapp_bot" >> $GITHUB_ENV
+        echo "PHONE_NUMBER=${{ secrets.PHONE_NUMBER }}" >> $GITHUB_ENV
+        echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> $GITHUB_ENV
+
+    - name: Start API Server
+      run: |
+        nohup python api_server.py &
+        sleep 5
+        echo "API Server started on port 8000"
+
+    - name: Start WhatsApp Bot
+      run: |
+        node bot.js &
+        BOT_PID=$!
+        echo "Bot started with PID: $BOT_PID"
+        
+        while true; do
+          echo "Bot running... $(date)"
+          sleep 60
+        done
