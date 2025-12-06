@@ -2218,6 +2218,9 @@ async function handleAppDownload(sock, remoteJid, userId, senderPhone, msg, appI
 
     try {
         const appDetails = await apkpure.app({ appId: appId });
+        
+        // استخدم اسم التطبيق الحقيقي من appDetails
+        const realAppTitle = appDetails.title || appTitle;
 
         if (appDetails.icon) {
             try {
@@ -2246,7 +2249,7 @@ async function handleAppDownload(sock, remoteJid, userId, senderPhone, msg, appI
 
         await sock.sendMessage(remoteJid, { react: { text: '📥', key: msg.key } });
 
-        const apkStream = await downloadAPKWithAxios(appDetails.appId, appDetails.title);
+        const apkStream = await downloadAPKWithAxios(appDetails.appId, realAppTitle);
 
         if (apkStream) {
             if (apkStream.size > MAX_FILE_SIZE) {
@@ -2270,11 +2273,11 @@ async function handleAppDownload(sock, remoteJid, userId, senderPhone, msg, appI
             await sock.sendMessage(remoteJid, { react: { text: '✅', key: msg.key } });
 
             const isXapk = apkStream.fileType === 'xapk';
-            await logDownload(senderPhone, appDetails.appId, appDetails.title, apkStream.fileType, apkStream.size);
-            recordSuccessfulDownload(userId, appDetails.title, appDetails.appId, apkStream.fileType, formatFileSize(apkStream.size));
+            await logDownload(senderPhone, appDetails.appId, realAppTitle, apkStream.fileType, apkStream.size);
+            recordSuccessfulDownload(userId, realAppTitle, appDetails.appId, apkStream.fileType, formatFileSize(apkStream.size));
 
             if (isXapk) {
-                let sanitizedName = appDetails.title
+                let sanitizedName = realAppTitle
                     .replace(/[<>:"/\\|?*]/g, '')
                     .replace(/\s+/g, '_')
                     .substring(0, 50);
