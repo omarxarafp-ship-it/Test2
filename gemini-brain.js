@@ -150,12 +150,13 @@ function detectAppRequest(text) {
     // طلبات ألعاب بالعربية (لعبة سيارات، لعبة كرة، إلخ)
     const gameCategories = [
         { ar: /لعب[ةت]\s*(سيارات|سباق|racing|cars)/i, en: "car racing game" },
-        { ar: /لعب[ةت]\s*(كرة|قدم|football|soccer)/i, en: "football soccer game" },
+        { ar: /لعب[ةت]\s*(كرة|قدم|football|soccer)/i, en: "football soccer game offline" },
         { ar: /لعب[ةت]\s*(حرب|قتال|war|fight|shooting)/i, en: "shooting war game" },
         { ar: /لعب[ةت]\s*(ذكاء|الغاز|puzzle)/i, en: "puzzle game" },
         { ar: /لعب[ةت]\s*(اطفال|أطفال|kids)/i, en: "kids game" },
         { ar: /لعب[ةت]\s*(طبخ|cooking)/i, en: "cooking game" },
         { ar: /لعب[ةت]\s*(مغامر|adventure)/i, en: "adventure game" },
+        { ar: /لعب[ةت]\s*(رعب|خوف|horror|scary)/i, en: "horror scary game" },
         { ar: /تطبيق\s*(تصوير|كاميرا|camera)/i, en: "camera photo app" },
         { ar: /تطبيق\s*(تعديل|edit)\s*(صور|photo)/i, en: "photo editor" },
         { ar: /تطبيق\s*(vpn|في بي ان)/i, en: "VPN" },
@@ -163,7 +164,31 @@ function detectAppRequest(text) {
 
     for (const cat of gameCategories) {
         if (cat.ar.test(text)) {
-            return { searchQuery: cat.en };
+            let query = cat.en;
+            if (/بدون\s*(انترنت|نت|اتصال)|offline/i.test(text)) {
+                query += " offline";
+            }
+            return { searchQuery: query };
+        }
+    }
+
+    // ألعاب معروفة بالعربية
+    const knownGamesArabic = [
+        { ar: /^(مريم|لعبة\s*مريم|mariam)$/i, en: "Mariam game horror" },
+        { ar: /^(غراني|جراني|granny)$/i, en: "Granny horror game" },
+        { ar: /^(جدتي|الجدة)$/i, en: "Granny horror game" },
+        { ar: /^(ببجي|pubg)$/i, en: "PUBG Mobile" },
+        { ar: /^(فري\s*فاير|free\s*fire)$/i, en: "Free Fire" },
+        { ar: /^(ماين\s*كرافت|minecraft)$/i, en: "Minecraft" },
+        { ar: /^(روبلوكس|roblox)$/i, en: "Roblox" },
+        { ar: /^(كلاش|clash)$/i, en: "Clash of Clans" },
+        { ar: /^(فيفا|fifa)$/i, en: "FIFA Mobile" },
+        { ar: /^(بيس|pes|efootball)$/i, en: "eFootball" },
+    ];
+
+    for (const game of knownGamesArabic) {
+        if (game.ar.test(lowerText)) {
+            return { searchQuery: game.en };
         }
     }
 
