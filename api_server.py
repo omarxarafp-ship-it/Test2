@@ -356,7 +356,15 @@ def search_apkpure(query: str, limit: int = 10) -> List[Dict[str, Any]]:
         search_url = f"https://apkpure.com/search?q={quote(query)}"
         print(f"[Search] Searching APKPure: {query}", file=sys.stderr)
         
-        response = scraper.get(search_url, timeout=20)
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+        }
+        
+        response = scraper.get(search_url, timeout=20, headers=headers)
         
         if response.status_code != 200:
             print(f"[Search] APKPure returned {response.status_code}", file=sys.stderr)
@@ -369,123 +377,110 @@ def search_apkpure(query: str, limit: int = 10) -> List[Dict[str, Any]]:
         skip_patterns = ['search?', 'developer/', 'topic/', 'category/', 'group/', 'tag/',
                         '/download', '/versions', '/similar', 'windows-app/', 'iphone-app/', 'mac-app/',
                         '/about', '/contact', '/privacy', 'howto/', 'chrome.google.com', 
-                        'play.google.com', '/ar/', '/de/', '/es/', '/fr/', '/pt/', '/ru/', '/ja/', '/ko/', '/zh/']
+                        'play.google.com', '/ar/', '/de/', '/es/', '/fr/', '/pt/', '/ru/', '/ja/', '/ko/', '/zh/',
+                        'premium', 'chrome/webstore']
         
         bad_titles = ['apkpure', 'windows app', 'iphone app', 'install now', 'search apk',
                      'aipure', 'tvonic', 'more', 'see all', 'add apk', 'chrome extension',
-                     'download apk', 'install apk', 'get it on']
+                     'download apk', 'install apk', 'get it on', 'remove ads', 'premium']
         
-        def extract_app_from_link(link_elem, parent_elem=None):
-            """Extract app info from a link element"""
-            href = link_elem.get('href', '')
-            if not href or not href.strip():
-                return None
+        print(f"[Search] Page loaded, parsing...", file=sys.stderr)
+        
+        all_links = soup.find_all('a', href=True)
+        print(f"[Search] Found {len(all_links)} total links", file=sys.stderr)
+        
+        for link in all_links:
+            if len(results) >= limit:
+                break
+                
+            href = link.get('href', '')
+            if not href:
+                continue
             
             href_lower = href.lower()
             if any(skip in href_lower for skip in skip_patterns):
-                return None
+                continue
             
-            url_path = href.replace('https://apkpure.com', '').replace('http://apkpure.com', '')
-            package_match = re.search(r'/([a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+)(?:/|$)', url_path, re.IGNORECASE)
+            package_match = re.search(r'apkpure\.com/([^/]+)/([a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+)(?:/|$)', href, re.IGNORECASE)
             if not package_match:
-                return None
+                url_path = href.replace('https://apkpure.com', '').replace('http://apkpure.com', '')
+                package_match = re.search(r'^/([^/]+)/([a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+)(?:/|$)', url_path, re.IGNORECASE)
             
-            package_id = package_match.group(1).lower()
+            if not package_match:
+                continue
+            
+            app_slug = package_match.group(1) if package_match.lastindex >= 1 else ''
+            package_id = package_match.group(2).lower() if package_match.lastindex >= 2 else package_match.group(1).lower()
             
             if package_id in seen_packages:
-                return None
+                continue
             if len(package_id) < 5 or package_id.count('.') < 1:
-                return None
+                continue
             
-            context = parent_elem if parent_elem else link_elem
+            parent = link.parent
+            grandparent = parent.parent if parent else None
+            context = grandparent if grandparent else (parent if parent else link)
             
             title = None
-            for sel in ['.p1', '.title', '.first-title', 'h3', 'h2', '.name']:
-                title_elem = context.select_one(sel)
-                if title_elem:
-                    title = title_elem.get_text(strip=True)
-                    break
+            developer = 'Unknown'
+            
+            if app_slug:
+                title = app_slug.replace('-', ' ').title()
+            
+            title_text = link.get_text(separator='\n', strip=True) if hasattr(link, 'get_text') else ''
+            if title_text:
+                lines = [l.strip() for l in title_text.split('\n') if l.strip()]
+                if len(lines) >= 1:
+                    first_line = lines[0]
+                    if first_line and len(first_line) >= 2 and len(first_line) <= 60:
+                        if not any(bad.lower() in first_line.lower() for bad in bad_titles):
+                            title = first_line
+                    if len(lines) >= 2:
+                        potential_dev = lines[1]
+                        if potential_dev and len(potential_dev) < 50:
+                            if not any(x in potential_dev.lower() for x in ['download', 'install', 'apk', 'version', 'xapk']):
+                                if not re.match(r'^[0-9.]+$', potential_dev):
+                                    developer = potential_dev
             
             if not title:
-                title = link_elem.get('title', '') or link_elem.get_text(strip=True)
+                title = package_id
             
             title = re.sub(r'\s+', ' ', title).strip()
             title = re.split(r'[0-9]+\.[0-9]+|Download|Install|APK|XAPK', title)[0].strip()
             
-            if not title or len(title) < 2 or len(title) > 80:
-                return None
+            if not title or len(title) < 2:
+                continue
             
             if any(bad.lower() in title.lower() for bad in bad_titles):
-                return None
+                continue
             
             words = title.split()
-            if len(words) > 6:
-                title = ' '.join(words[:6])
+            if len(words) > 8:
+                title = ' '.join(words[:8])
             
             icon = None
-            img = context.select_one('img.icon, img.logo, img[src*="icon"], img[data-src*="icon"]')
-            if not img:
-                img = context.find('img')
-            if img:
-                icon = img.get('src') or img.get('data-src') or img.get('data-original')
-                if icon and isinstance(icon, str):
-                    if icon.startswith('//'):
-                        icon = f"https:{icon}"
-                    elif icon.startswith('/'):
-                        icon = f"https://apkpure.com{icon}"
+            for ctx in [link, parent, grandparent, context]:
+                if ctx:
+                    img = ctx.find('img') if hasattr(ctx, 'find') else None
+                    if img:
+                        icon = img.get('src') or img.get('data-src') or img.get('data-original')
+                        if icon:
+                            break
             
-            developer = 'Unknown'
-            for sel in ['.p2', '.developer', '.by', '.author', '.dev']:
-                dev_elem = context.select_one(sel)
-                if dev_elem:
-                    developer = dev_elem.get_text(strip=True)
-                    break
+            if icon and isinstance(icon, str):
+                if icon.startswith('//'):
+                    icon = f"https:{icon}"
+                elif icon.startswith('/'):
+                    icon = f"https://apkpure.com{icon}"
             
             seen_packages.add(package_id)
-            return {
+            results.append({
                 'title': title,
                 'appId': package_id,
                 'developer': developer,
                 'icon': icon,
                 'score': 0
-            }
-        
-        selectors = [
-            'div.first-info',
-            'a.dd',
-            'div.list-item',
-            'li.list-item',
-            'div.search-dl a',
-            'div.info a[href*="/com."]',
-            'div.info a[href*="/org."]',
-        ]
-        
-        for selector in selectors:
-            if len(results) >= limit:
-                break
-            items = soup.select(selector)
-            for item in items:
-                if len(results) >= limit:
-                    break
-                if item.name == 'a':
-                    app = extract_app_from_link(item, item.parent)
-                else:
-                    link = item.find('a', href=True)
-                    if link:
-                        app = extract_app_from_link(link, item)
-                    else:
-                        continue
-                if app:
-                    results.append(app)
-        
-        if len(results) < limit:
-            all_links = soup.find_all('a', href=re.compile(r'apkpure\.com/[^/]+/[a-z][a-z0-9_.]+\.[a-z0-9_.]+'))
-            for link in all_links:
-                if len(results) >= limit:
-                    break
-                app = extract_app_from_link(link)
-                if app:
-                    results.append(app)
+            })
         
         print(f"[Search] Found {len(results)} results for '{query}'", file=sys.stderr)
         return results
