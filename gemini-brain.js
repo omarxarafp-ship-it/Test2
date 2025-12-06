@@ -81,11 +81,16 @@ const SYSTEM_PROMPT = `أنت مساعد ذكي للبوت ديال واتساب
 
 📝 أمثلة:
 - "السلام" → {"action": "reply", "message": "وعليكم السلام! كيفاش نقدر نعاونك؟"}
-- "واتساب" → {"action": "search_app", "query": "WhatsApp"}
-- "فري فاير" → {"action": "search_app", "query": "Free Fire"}
-- "بغيت لعبة حلوة" → {"action": "search_app", "query": "best games"}
-- "شكرا" → {"action": "reply", "message": "العفو! إلا حتجتي شي حاجة أخرى أنا هنا"}
-- "كيف حالك" → {"action": "reply", "message": "لاباس الحمد لله! وأنت كيداير؟"}`;
+- "قلب على WhatsApp" → {"action": "search_app", "query": "WhatsApp"}
+- "نزل رقم 1" → {"action": "download_app", "appId": "com.whatsapp", "appName": "WhatsApp"}
+  ⚠️ *appId يجب أن يكون package name الحقيقي* (com.company.app) وليس اسم التطبيق
+- "شكراً" → {"action": "reply", "message": "العفو! ماشي مشكل 😊"}
+
+🔴 *مهم جداً:* عندما المستخدم يختار رقم من القائمة:
+- استخدم الـ appId الحقيقي من نتائج البحث في الذاكرة
+- مثال: إذا القائمة فيها "ChatGPT" بـ appId "com.openai.chatgpt"
+  والمستخدم قال "نزل رقم 1" أو "ChatGPT"
+  → استخدم appId: "com.openai.chatgpt" وليس "ChatGPT"`;
 
 function detectSocialMediaUrl(text) {
     const patterns = {
@@ -437,7 +442,7 @@ export async function processMessage(userId, text, imageData = null) {
             const jsonMatch = responseText.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
                 const parsed = JSON.parse(jsonMatch[0]);
-                
+
                 // إذا كان الرد يحتوي على action وmessage، نتحقق إذا كانت message فيها JSON أيضاً
                 if (parsed.action === "reply" && parsed.message) {
                     try {
@@ -454,7 +459,7 @@ export async function processMessage(userId, text, imageData = null) {
                         // إذا فشل، نستخدم الـ JSON الخارجي
                     }
                 }
-                
+
                 if (parsed.action) {
                     return parsed;
                 }
