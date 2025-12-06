@@ -26,30 +26,36 @@ const SYSTEM_PROMPT = `أنت بوت AppOmar - مساعد ذكي لتحميل ا
 
 *الأرقام*: لول=1 | ثاني=2 | ثالث=3 | رابع=4 | خامس=5 | سادس=6 | سابع=7 | ثامن=8 | تاسع=9 | عاشر=10
 
+*البحث ثنائي اللغة*:
+- المستخدم يمكن أن يبحث بالعربية أو الإنجليزية
+- "واتساب" = "whatsapp" (تحويل تلقائي)
+- "انستا" = "instagram"
+- "فيسبوك" = "facebook"
+- البحث يتم دائماً بالإنجليزية للحصول على نتائج أفضل
+
 *الذاكرة - مهم جداً*:
 - [نتائج البحث: ...] = قائمة التطبيقات المتاحة مع appId لكل واحد
 - بعد ما المستخدم يحمّل "لول"، إذا قال "ثاني" = يعني رقم 2 من نفس النتائج السابقة
 - "رقم 2" أو "بغيت رقم 2" أو "الثاني" = download_app مع appId من الرقم 2 في النتائج
 - حافظ على appId الصحيح من [نتائج البحث:]
 
+*تصفية النتائج - مهم*:
+- النتائج تتم تصفيتها تلقائياً لإزالة التطبيقات الغريبة والمزيفة
+- التطبيقات من شركات معروفة (Meta, Google, etc) يتم البحث عن إصدارات رسمية أخرى تلقائياً
+- مثال: "واتساب" → يضيف WhatsApp + WhatsApp Business
+- لا تقلق بشأن الترشيح - البوت يفعلها تلقائياً
+
 *أوامر JSON فقط*:
-- اسم تطبيق ← {"action": "search_app", "query": "الاسم بالإنجليزية"}
+- اسم تطبيق (عربي أو انجليزي) ← {"action": "search_app", "query": "الاسم بالإنجليزية بعد التحويل"}
 - رقم/لول/ثاني ← {"action": "download_app", "appId": "من النتائج", "appName": "..."}
 - محادثة عادية ← {"action": "reply", "message": "رد قصير ومفيد"}
 
 *أمثلة للردود الصحيحة*:
+- "واتساب" ← {"action": "search_app", "query": "whatsapp"}
+- "انستا" ← {"action": "search_app", "query": "instagram"}
+- "يوتيوب" ← {"action": "search_app", "query": "youtube"}
 - "سلام" ← {"action": "reply", "message": "وعليكم السلام! كيفاش نقدر نعاونك؟ بغيتي شي تطبيق؟"}
-- "مرحبا" ← {"action": "reply", "message": "مرحبا بيك! عطيني اسم التطبيق لي بغيتي."}
-- "شكرا" ← {"action": "reply", "message": "بصحتك! إلى احتجتي شي حاجة أخرى أنا هنا."}
-- "وي" أو "اه" ← {"action": "reply", "message": "تمام! شنو بغيتي تحمل؟"}
-- "لا" ← {"action": "reply", "message": "واخا، شي حاجة أخرى؟"}
-- "كيفاش نثبت؟" ← {"action": "reply", "message": "استعمل تطبيق ZArchiver باش تثبت الملفات. ثبت APK أولاً ومن بعد انقل OBB."}
-
-*أمثلة اختيار من النتائج*:
-- نتائج فيها: 1.WhatsApp(com.whatsapp) 2.WhatsApp Business(com.whatsapp.w4b)
-- المستخدم: "لول" ← {"action": "download_app", "appId": "com.whatsapp", "appName": "WhatsApp"}
-- المستخدم: "ثاني" ← {"action": "download_app", "appId": "com.whatsapp.w4b", "appName": "WhatsApp Business"}
-- المستخدم: "رقم 2" ← {"action": "download_app", "appId": "com.whatsapp.w4b", "appName": "WhatsApp Business"}
+- "لول" ← {"action": "download_app", "appId": "com.whatsapp", "appName": "WhatsApp"}
 
 *ممنوع*:
 - ما تبحثش على "بغيت رقم 2" - هادي ماشي بحث! هادي اختيار من النتائج
@@ -82,11 +88,104 @@ function detectSocialMediaUrl(text) {
     return null;
 }
 
+// قاموس ترجمة عربي -> إنجليزي للتطبيقات المعروفة
+const arabicToEnglish = {
+    'واتساب': 'whatsapp',
+    'واتس': 'whatsapp',
+    'واتس اب': 'whatsapp',
+    'انستقرام': 'instagram',
+    'انستا': 'instagram',
+    'فيسبوك': 'facebook',
+    'فيس': 'facebook',
+    'يوتيوب': 'youtube',
+    'تيكتوك': 'tiktok',
+    'تيك توك': 'tiktok',
+    'تليجرام': 'telegram',
+    'تلي': 'telegram',
+    'سناب': 'snapchat',
+    'سنابشات': 'snapchat',
+    'جوجل': 'google',
+    'كروم': 'chrome',
+    'جيميل': 'gmail',
+    'درايف': 'drive',
+    'خرائط': 'maps',
+    'فري فاير': 'free fire',
+    'ببجي': 'pubg mobile',
+    'ماين': 'minecraft',
+    'ماينكرافت': 'minecraft',
+    'كول أوف ديوتي': 'call of duty mobile',
+    'كود': 'call of duty mobile',
+    'كلاش': 'clash of clans',
+    'بوكيمون': 'pokemon go',
+    'كاندي': 'candy crush',
+    'سابواي': 'subway surfers',
+    'روبلوكس': 'roblox',
+    'قوقل بلاي': 'google play',
+};
+
+// الشركات المعروفة ذات التطبيقات الرسمية
+const KNOWN_COMPANIES = {
+    'Meta': ['whatsapp', 'facebook', 'instagram', 'threads'],
+    'Google': ['gmail', 'maps', 'chrome', 'youtube', 'drive', 'photos', 'meet'],
+    'Microsoft': ['office', 'teams', 'edge', 'skype', 'xbox'],
+    'Apple': ['safari', 'icloud', 'facetime'],
+    'Telegram': ['telegram'],
+    'Snapchat': ['snapchat'],
+    'Tiktok': ['tiktok'],
+    'Amazon': ['amazon', 'prime video', 'kindle'],
+    'Netflix': ['netflix'],
+    'Spotify': ['spotify'],
+    'Adobe': ['lightroom', 'photoshop express'],
+    'Garena': ['free fire', 'aov'],
+    'Tencent': ['pubg mobile', 'cod mobile', 'arena breakout'],
+    'Mojang': ['minecraft'],
+    'Supercell': ['clash of clans', 'clash royale', 'brawl stars'],
+    'King': ['candy crush'],
+    'Outfit7': ['my talking tom'],
+    'Scopely': ['scrabble go'],
+};
+
+// تحديد ما إذا كان التطبيق من شركة معروفة
+function getOfficialAppsForQuery(query) {
+    const queryLower = query.toLowerCase();
+    
+    for (const [company, apps] of Object.entries(KNOWN_COMPANIES)) {
+        for (const app of apps) {
+            if (queryLower.includes(app) || app.includes(queryLower)) {
+                // إرجاع التطبيقات الرسمية من الشركة
+                return apps.map(name => ({
+                    query: name,
+                    isOfficial: true,
+                    company
+                }));
+            }
+        }
+    }
+    
+    return null;
+}
+
+// ترجمة البحث من العربية إلى الإنجليزية
+export function translateArabicToEnglish(text) {
+    if (!text) return text;
+    
+    let translated = text.toLowerCase().trim();
+    
+    // استبدال الكلمات العربية بالإنجليزية
+    for (const [ar, en] of Object.entries(arabicToEnglish)) {
+        const regex = new RegExp(`\\b${ar}\\b`, 'gi');
+        translated = translated.replace(regex, en);
+    }
+    
+    return translated;
+}
+
 // تصحيح الأخطاء الإملائية الشائعة
 export function correctSpelling(text) {
     if (!text) return text;
     
-    let corrected = text.toLowerCase().trim();
+    // أولاً ترجم من العربية إن وجدت
+    let corrected = translateArabicToEnglish(text).toLowerCase().trim();
     
     // قاموس التصحيحات الشائعة
     const corrections = {
@@ -227,25 +326,13 @@ export function correctSpelling(text) {
         'browl stars': 'brawl stars',
     };
     
-    // تطبيق التصحيحات على كل كلمة
-    let words = corrected.split(/\s+/);
-    for (let i = 0; i < words.length; i++) {
-        if (corrections[words[i]]) {
-            words[i] = corrections[words[i]];
-        }
-    }
-    corrected = words.join(' ');
+    // تطبيق التصحيحات (العبارات الطويلة أولاً، ثم الكلمات الفردية)
+    // ترتيب بناءً على الطول (الأطول أولاً) لتجنب التعارضات
+    const sortedCorrections = Object.entries(corrections).sort((a, b) => b[0].length - a[0].length);
     
-    // تصحيح العبارات الكاملة
-    for (const [wrong, right] of Object.entries(corrections)) {
-        if (corrected.includes(wrong)) {
-            corrected = corrected.replace(wrong, right);
-        }
-    }
-    
-    // تصحيحات خاصة للجمل
-    if (/c?[gj]ta.*s[ao]n/i.test(corrected) || /s[ao]n.*andre/i.test(corrected)) {
-        corrected = 'gta san andreas';
+    for (const [wrong, right] of sortedCorrections) {
+        const regex = new RegExp(`\\b${wrong}\\b`, 'g');
+        corrected = corrected.replace(regex, right);
     }
     
     return corrected;
@@ -857,17 +944,46 @@ export function recordSearchFailure(userId, searchQuery) {
 }
 
 // تنسيق نتائج البحث باستخدام Gemini
+// تصفية النتائج الغريبة والمزيفة
+function filterOddApps(results, query) {
+    const queryLower = query.toLowerCase();
+    const spamKeywords = ['mod', 'hack', 'cheat', 'fake', 'clone', 'simulator', 'prank', 'guide', 'tutorial', 'diamond', 'coin', 'generator', 'calculator', 'tips', 'trick'];
+    
+    return results.filter(app => {
+        const titleLower = app.title.toLowerCase();
+        
+        // إزالة التطبيقات التي تحتوي على كلمات spam
+        if (spamKeywords.some(keyword => titleLower.includes(keyword))) {
+            return false;
+        }
+        
+        return true;
+    });
+}
+
 export async function formatResultsWithGemini(userId, searchQuery, results) {
-    // تنسيق مباشر بدون استخدام Gemini لضمان النتيجة الصحيحة
+    // تصفية النتائج الغريبة
+    let filteredResults = filterOddApps(results, searchQuery);
+    
+    // ترتيب حسب التقييم (الأعلى أولاً)
+    filteredResults.sort((a, b) => {
+        const scoreA = parseFloat(a.score) || 0;
+        const scoreB = parseFloat(b.score) || 0;
+        return scoreB - scoreA;
+    });
+    
+    // حد أقصى 10 نتائج
+    filteredResults = filteredResults.slice(0, 10);
+    
     let formattedText = `نتائج البحث ديال *${searchQuery}*:\n\n`;
     
-    results.forEach((app, idx) => {
+    filteredResults.forEach((app, idx) => {
         formattedText += `${idx + 1}. ${app.title}\n`;
     });
     
-    formattedText += `\nشنو بغيتي ننزّل ليك؟ كتب الرقم.`;
+    formattedText += `\nشنو بغيتي ننزّل ليك؟ كتب الرقم.\n\n> © من طرف AppOmar`;
     
-    console.log('✅ تم تنسيق النتائج');
+    console.log(`✅ تصيفطت نتائج البحث`);
     return formattedText;
 }
 

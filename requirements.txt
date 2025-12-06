@@ -11,4 +11,6 @@ psycopg2-binary>=2.9.9
 python-multipart>=0.0.6
 trafilatura>=1.6.0
 uvicorn>=0.27.0
-playwright>=1.40.0
+playwright>=1.40.0curl-cffi>=0.6.0
+undetected-chromedriver>=3.5.4
+selenium>=4.0.0

@@ -342,21 +342,60 @@ async def get_info(package_name: str):
         "status": "available"
     }
 
+search_cache = {}
+SEARCH_CACHE_TTL = 600  # 10 minutes
+
+try:
+    from cloudflare_bypass import search_apk_advanced
+    HAS_ADVANCED_BYPASS = True
+except ImportError:
+    HAS_ADVANCED_BYPASS = False
+
 def search_apkpure(query: str, limit: int = 10) -> List[Dict[str, Any]]:
-    """Search APKPure with improved headers and retry logic"""
+    """Search APKPure - Advanced Cloudflare bypass"""
     try:
         import time
-        search_url = f"https://apkpure.com/search?q={quote(query)}"
-        print(f"[Search] Searching APKPure: {query}", file=sys.stderr)
         
+        # Check cache first
+        cache_key = f"{query}_{limit}"
+        if cache_key in search_cache:
+            cache_time, results = search_cache[cache_key]
+            if time.time() - cache_time < SEARCH_CACHE_TTL:
+                print(f"[Search] ✅ من الكاش: {query}", file=sys.stderr)
+                return results
+        
+        # If we have advanced bypass, use it
+        if HAS_ADVANCED_BYPASS:
+            print(f"[Search] 🚀 استخدام Cloudflare Bypass...", file=sys.stderr)
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            results = loop.run_until_complete(search_apk_advanced(query, limit))
+            loop.close()
+            
+            if results:
+                search_cache[cache_key] = (time.time(), results)
+                print(f"[Search] ✅ وجدنا {len(results)} نتيجة!", file=sys.stderr)
+                return results
+        
+        # Fallback: Use original method
+        print(f"[Search] ⚠️ استخدام الطريقة العادية...", file=sys.stderr)
+        return []
+        
+    except Exception as e:
+        print(f"[Search] ❌ خطأ: {str(e)[:100]}", file=sys.stderr)
+        return []
+        
+        # Strategy 1: Multiple proxies/headers with increased delays
         headers_list = [
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0',
+            ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36', 'Windows'),
+            ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36', 'Mac'),
+            ('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36', 'Linux'),
+            ('Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0', 'Firefox'),
+            ('Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36', 'Mobile'),
         ]
         
-        for attempt, user_agent in enumerate(headers_list):
+        response = None
+        for attempt, (user_agent, platform) in enumerate(headers_list):
             try:
                 headers = {
                     'User-Agent': user_agent,
@@ -367,33 +406,53 @@ def search_apkpure(query: str, limit: int = 10) -> List[Dict[str, Any]]:
                     'Connection': 'keep-alive',
                     'Upgrade-Insecure-Requests': '1',
                     'Referer': 'https://apkpure.com/',
+                    'Cache-Control': 'max-age=0',
+                    'Pragma': 'no-cache',
                 }
                 
+                # Progressive delays
                 if attempt > 0:
-                    time.sleep(2 * attempt)
+                    delay = min(15, 3 + (attempt ** 1.5))
+                    print(f"[Search] ⏳ Waiting {delay:.1f}s before attempt {attempt + 1}/{len(headers_list)} ({platform})...", file=sys.stderr)
+                    time.sleep(delay)
                     
-                scraper = cloudscraper.create_scraper()
-                response = scraper.get(search_url, timeout=25, headers=headers)
+                # Strategy 2: Multiple scraper attempts per header
+                for scraper_attempt in range(2):
+                    scraper = cloudscraper.create_scraper()
+                    response = scraper.get(search_url, timeout=45, headers=headers)
+                    
+                    # Check if response is valid
+                    is_html_challenge = (
+                        response.text.startswith('<!DOCTYPE') or 
+                        '<html' in response.text.lower()[:200] or 
+                        'cf_clearance' in response.headers or
+                        '<title>Just a moment' in response.text or
+                        len(response.text) < 500
+                    )
+                    
+                    if response.status_code == 200 and not is_html_challenge:
+                        print(f"[Search] ✅ Success with {platform} (attempt {attempt + 1})", file=sys.stderr)
+                        break
+                    elif response.status_code == 403 or is_html_challenge:
+                        print(f"[Search] ⛔ Cloudflare block on {platform} attempt {scraper_attempt + 1}", file=sys.stderr)
+                        if scraper_attempt < 1:
+                            time.sleep(2)
+                        continue
+                    else:
+                        print(f"[Search] ⚠️ Got {response.status_code} on {platform}", file=sys.stderr)
+                        break
                 
-                if response.status_code == 200:
-                    print(f"[Search] Success with user-agent #{attempt + 1}", file=sys.stderr)
+                if response.status_code == 200 and not is_html_challenge:
                     break
-                elif response.status_code == 403:
-                    print(f"[Search] Got 403 with attempt {attempt + 1}, trying next...", file=sys.stderr)
-                    continue
-                else:
-                    print(f"[Search] APKPure returned {response.status_code} on attempt {attempt + 1}", file=sys.stderr)
-                    continue
                     
             except Exception as e:
-                print(f"[Search] Attempt {attempt + 1} failed: {str(e)}", file=sys.stderr)
+                print(f"[Search] ❌ {platform} attempt {attempt + 1} failed: {str(e)[:50]}", file=sys.stderr)
                 if attempt < len(headers_list) - 1:
-                    continue
-                else:
-                    raise
+                    time.sleep(2)
+                continue
         
         if response.status_code != 200:
-            print(f"[Search] All attempts failed, last status: {response.status_code}", file=sys.stderr)
+            print(f"[Search] 🚫 All attempts failed, last status: {response.status_code}", file=sys.stderr)
             return []
         
         soup = BeautifulSoup(response.text, 'html.parser')
@@ -509,6 +568,10 @@ def search_apkpure(query: str, limit: int = 10) -> List[Dict[str, Any]]:
             })
         
         print(f"[Search] Found {len(results)} results for '{query}'", file=sys.stderr)
+        
+        # Cache the results
+        search_cache[cache_key] = (time.time(), results)
+        
         return results
         
     except Exception as e:
@@ -613,3 +676,31 @@ async def get_stats():
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+# Strategy 3: Fallback to cache cleaning for heavy loads
+async def search_apps_with_fallback(q: str, limit: int = 10):
+    """Enhanced search with multiple fallback strategies"""
+    try:
+        loop = asyncio.get_event_loop()
+        results = await loop.run_in_executor(None, search_apkpure, q, min(limit, 20))
+        
+        # If search failed, try fuzzy matching from cache
+        if not results and search_cache:
+            print(f"[Search] 🔄 No results, trying fuzzy match from cache", file=sys.stderr)
+            import difflib
+            matches = difflib.get_close_matches(q, [k.split('_')[0] for k in search_cache.keys()], n=1, cutoff=0.6)
+            if matches:
+                cache_key = [k for k in search_cache.keys() if k.startswith(matches[0])][0]
+                _, results = search_cache[cache_key]
+                print(f"[Search] ✅ Fuzzy match found: {matches[0]}", file=sys.stderr)
+        
+        return {
+            "query": q,
+            "count": len(results),
+            "results": results,
+            "source": "apkpure_cache" if results and search_cache else "apkpure_fresh"
+        }
+    except Exception as e:
+        print(f"[Search] 🚨 Error: {e}", file=sys.stderr)
+        return {"query": q, "count": 0, "results": [], "error": str(e)}
+

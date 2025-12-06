@@ -1901,11 +1901,36 @@ AppOmar Bot v3.0
                             results = await apkpure.search({ term: searchQuery, num: 10 }); 
                         }
                     } else {
-                        results = await apkpure.search({ term: searchQuery, num: 10 });
+                        // Strategy: Multiple search attempts with delays
+                        for (let searchAttempt = 0; searchAttempt < 3; searchAttempt++) {
+                            try {
+                                results = await apkpure.search({ term: searchQuery, num: 10 });
+                                if (results && results.length > 0 && results[0].title) break;
+                                if (searchAttempt < 2) {
+                                    await new Promise(resolve => setTimeout(resolve, 2000 + (searchAttempt * 1000)));
+                                }
+                            } catch (e) {
+                                if (searchAttempt === 2) throw e;
+                                await new Promise(resolve => setTimeout(resolve, 3000));
+                            }
+                        }
                     }
+                    
+                    // تصفية النتائج الخاطئة (HTML pages)
+                    results = results.filter(app => {
+                        const title = (app.title || '').toString();
+                        return !title.includes('<!DOCTYPE') && 
+                               !title.includes('<html') && 
+                               !title.includes('just a moment') &&
+                               title.length > 0 &&
+                               title.length < 100;
+                    });
+                    
                     console.log('📊 نتائج البحث:', results?.length || 0);
                 } catch (searchError) {
                     console.error('❌ خطأ في البحث:', searchError.message);
+                    // إضافة تأخير قبل الرسالة خطأ
+                    await new Promise(resolve => setTimeout(resolve, 1000));
                     await sendBotMessage(sock, remoteJid, { 
                         text: `وقع مشكل فالبحث. جرب مرة أخرى.${POWERED_BY}`
                     }, msg);
