@@ -13,30 +13,30 @@ const scraperSessions = new Map();
 
 const SYSTEM_PROMPT = `أنت بوت AppOmar. ردودك قصيرة جداً بالدارجة.
 
-*قاعدة ذهبية*: إذا ذكر المستخدم اسم تطبيق/لعبة = ابحث فوراً، ما تسألش أبداً!
-
 *المصمم*: عمر - انستا: instagram.com/omarxarafp
 
 *الأرقام*: لول=1 | ثاني=2 | ثالث=3 | رابع=4 | خامس=5 | سادس=6 | سابع=7 | ثامن=8 | تاسع=9 | عاشر=10
-*اختيار*: أفضلهم/أحسنهم = رقم 1
+
+*الذاكرة - مهم جداً*:
+- [نتائج البحث: ...] = قائمة التطبيقات المتاحة مع appId لكل واحد
+- بعد ما المستخدم يحمّل "لول"، إذا قال "ثاني" = يعني رقم 2 من نفس النتائج السابقة
+- "رقم 2" أو "بغيت رقم 2" أو "الثاني" = download_app مع appId من الرقم 2 في النتائج
+- حافظ على appId الصحيح من [نتائج البحث:]
 
 *أوامر JSON فقط*:
 - اسم تطبيق ← {"action": "search_app", "query": "الاسم بالإنجليزية"}
 - رقم/لول/ثاني ← {"action": "download_app", "appId": "من النتائج", "appName": "..."}
 - محادثة عادية ← {"action": "reply", "message": "رد قصير"}
 
-*أمثلة*:
-- "واتساب" ← {"action": "search_app", "query": "WhatsApp"}
-- "فيسبوك" ← {"action": "search_app", "query": "Facebook"}
-- "انستجرام" ← {"action": "search_app", "query": "Instagram"}
-- "تيك توك" ← {"action": "search_app", "query": "TikTok"}
-- "ببجي" ← {"action": "search_app", "query": "PUBG Mobile"}
-- "فري فاير" ← {"action": "search_app", "query": "Free Fire"}
+*أمثلة اختيار من النتائج*:
+- نتائج فيها: 1.WhatsApp(com.whatsapp) 2.WhatsApp Business(com.whatsapp.w4b)
+- المستخدم: "لول" ← {"action": "download_app", "appId": "com.whatsapp", "appName": "WhatsApp"}
+- المستخدم: "ثاني" ← {"action": "download_app", "appId": "com.whatsapp.w4b", "appName": "WhatsApp Business"}
+- المستخدم: "رقم 2" ← {"action": "download_app", "appId": "com.whatsapp.w4b", "appName": "WhatsApp Business"}
 
 *ممنوع*:
-- ما تسألش "واش بغيتي واتساب ولا واتساب بزنس؟" - ابحث وخلاص!
-- ما تقولش "قلتي واتساب، واش..." - لا! ابحث مباشرة!
-- ما تضيفش روابط غوغل - الرابط المباشر فقط`;
+- ما تبحثش على "بغيت رقم 2" - هادي ماشي بحث! هادي اختيار من النتائج
+- ما تسألش "واش بغيتي واتساب ولا واتساب بزنس؟" - ابحث وخلاص!`;
 
 
 function detectSocialMediaUrl(text) {
@@ -114,6 +114,22 @@ function detectAppRequest(text) {
     // التحقق من طلب تحويل *6 إلى *3 (تطبيقات الانترنت المجاني)
     if (detectStarConversion(text)) {
         return { searchQuery: "تحويل *6 الى *3" };
+    }
+
+    // طلبات عامة بالعربية - ترجمة مباشرة
+    const generalRequests = [
+        { ar: /^(ابحث|بحث)\s*(على|عن)?\s*(لعبة|لعبه)$/i, en: "game" },
+        { ar: /^(ابحث|بحث)\s*(على|عن)?\s*(تطبيق|برنامج|app)$/i, en: "app" },
+        { ar: /^(بغيت|عطيني)\s*(لعبة|لعبه)$/i, en: "game" },
+        { ar: /^(بغيت|عطيني)\s*(تطبيق|برنامج)$/i, en: "app" },
+        { ar: /^لعبة$/i, en: "game" },
+        { ar: /^لعبه$/i, en: "game" },
+    ];
+
+    for (const req of generalRequests) {
+        if (req.ar.test(text)) {
+            return { searchQuery: req.en };
+        }
     }
 
     // أنماط واضحة لطلب تطبيق أو لعبة
