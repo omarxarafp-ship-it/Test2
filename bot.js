@@ -1994,6 +1994,30 @@ AppOmar Bot v3.0
                     await sendBotMessage(sock, remoteJid, { text: `مقديتش نجيب الفيديو. جرب رابط آخر.${POWERED_BY}` }, msg);
                 }
 
+            } else if (geminiResponse.action === 'star_conversion_apps') {
+                // تطبيقات تحويل *6 إلى *3
+                await sock.sendMessage(remoteJid, { react: { text: '📱', key: msg.key } });
+                
+                const apps = geminiResponse.apps || [];
+                session.searchResults = apps.map((app, idx) => ({
+                    title: app.name,
+                    appId: app.appId,
+                    developer: app.description || '',
+                    score: 0,
+                    icon: null,
+                    index: idx + 1
+                }));
+                session.state = 'waiting_for_selection';
+                
+                const sentMsg = await sendBotMessage(sock, remoteJid, { text: `${geminiResponse.message}${POWERED_BY}` }, msg, { skipDelay: true });
+                session.lastListMessageKey = sentMsg?.key;
+                userSessions.set(userId, session);
+                console.log('✅ تصيفطت قائمة تطبيقات *6 إلى *3');
+                
+                // حفظ النتائج في ذاكرة المحادثة
+                const appNames = apps.map((app, i) => `${i + 1}. ${app.name} (${app.appId})`).join('\n');
+                addContext(userId, `[تطبيقات تحويل *6 إلى *3]\n${appNames}`, 'search');
+
             } else if (geminiResponse.action === 'reply' || geminiResponse.action === 'analyze_image') {
                 const message = geminiResponse.message || 'مفهمتش. عاود صيفط.';
                 await sendBotMessage(sock, remoteJid, { text: `${message}${POWERED_BY}` }, msg);
@@ -2150,6 +2174,30 @@ AppOmar Bot v3.0
                         await sendBotMessage(sock, remoteJid, { text: `مقديتش نجيب الفيديو. جرب رابط آخر.${POWERED_BY}` }, msg);
                     }
                     
+                } else if (geminiResponse.action === 'star_conversion_apps') {
+                    // تطبيقات تحويل *6 إلى *3
+                    await sock.sendMessage(remoteJid, { react: { text: '📱', key: msg.key } });
+                    
+                    const apps = geminiResponse.apps || [];
+                    session.searchResults = apps.map((app, idx) => ({
+                        title: app.name,
+                        appId: app.appId,
+                        developer: app.description || '',
+                        score: 0,
+                        icon: null,
+                        index: idx + 1
+                    }));
+                    session.state = 'waiting_for_selection';
+                    
+                    const sentMsg = await sendBotMessage(sock, remoteJid, { text: `${geminiResponse.message}${POWERED_BY}` }, msg, { skipDelay: true });
+                    session.lastListMessageKey = sentMsg?.key;
+                    userSessions.set(userId, session);
+                    console.log('✅ تصيفطت قائمة تطبيقات *6 إلى *3 (selection)');
+                    
+                    // حفظ النتائج في ذاكرة المحادثة
+                    const appNames = apps.map((app, i) => `${i + 1}. ${app.name} (${app.appId})`).join('\n');
+                    addContext(userId, `[تطبيقات تحويل *6 إلى *3]\n${appNames}`, 'search');
+
                 } else if (geminiResponse.action === 'reply' || geminiResponse.action === 'analyze_image') {
                     const message = geminiResponse.message || 'مفهمتش. عاود صيفط.';
                     await sendBotMessage(sock, remoteJid, { text: `${message}${POWERED_BY}` }, msg);

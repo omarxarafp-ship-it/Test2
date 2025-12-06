@@ -72,6 +72,7 @@ Send messages to the bot:
 - Platform URLs (YouTube, Instagram, etc.) for media downloads
 - "zarchiver" to get XAPK installer
 - "/help" or "/commands" for help
+- "تحويل *6 الى *3" - Shows VPN/tunnel apps for free internet (HTTP Custom, MD Tunnel, HA Tunnel Plus, HTTP Injector)
 
 ## File Structure
 

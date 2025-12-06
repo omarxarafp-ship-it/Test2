@@ -132,7 +132,16 @@ function detectAppRequest(text) {
 
     // التحقق من طلب تحويل *6 إلى *3 (تطبيقات الانترنت المجاني)
     if (detectStarConversion(text)) {
-        return { searchQuery: "تحويل *6 الى *3" };
+        return { 
+            action: "star_conversion_apps",
+            apps: [
+                { name: "HTTP Custom", appId: "com.evozi.httpcustom", description: "تطبيق VPN للانترنت المجاني" },
+                { name: "MD Tunnel VPN", appId: "com.developer.nicenet", description: "تونيل VPN مجاني" },
+                { name: "HA Tunnel Plus", appId: "com.fc.hatunnelplus", description: "تونيل للانترنت المجاني" },
+                { name: "HTTP Injector", appId: "com.evozi.injector", description: "حاقن HTTP للانترنت" }
+            ],
+            message: "📱 *تطبيقات تحويل \\*6 إلى \\*3:*\n\n1️⃣ HTTP Custom\n2️⃣ MD Tunnel VPN\n3️⃣ HA Tunnel Plus\n4️⃣ HTTP Injector\n\n💡 اختار الرقم لي بغيتي تحملو"
+        };
     }
 
     // طلبات عامة بالعربية - ترجمة مباشرة
